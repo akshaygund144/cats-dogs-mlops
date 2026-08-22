@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Conda / virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# MLflow local tracking
+mlruns/
+
+# Model files
+*.pt
+*.pth
+*.h5
+*.pkl
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+
+# DVC cache
+.dvc/cache/
