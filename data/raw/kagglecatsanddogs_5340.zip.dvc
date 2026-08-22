@@ -1,0 +1,5 @@
+outs:
+- md5: e137a4507370d942469b6d267a24ea04
+  size: 824887076
+  hash: md5
+  path: kagglecatsanddogs_5340.zip
