@@ -36,3 +36,9 @@ mlruns/
 
 # DVC cache
 .dvc/cache/
+
+# Extracted raw dataset
+data/raw/PetImages/
+data/raw/CDLA-Permissive-2.0.pdf
+data/raw/readme[[]1].txt
+
