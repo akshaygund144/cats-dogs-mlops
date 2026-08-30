@@ -8,6 +8,11 @@ on:
     branches:
       - master
 
+# Required for GitHub Container Registry
+permissions:
+  contents: read
+  packages: write
+
 jobs:
 
   # =========================================================
@@ -37,6 +42,7 @@ jobs:
         run: |
           pytest -q
 
+
   # =========================================================
   # CD - Docker Build
   # =========================================================
@@ -57,3 +63,47 @@ jobs:
       - name: Verify Docker image
         run: |
           docker images cats-dogs-api
+
+
+  # =========================================================
+  # CD - Publish Docker Image to GitHub Container Registry
+  # =========================================================
+
+  docker-publish:
+    name: Publish Docker Image
+    runs-on: ubuntu-latest
+    needs: docker-build
+
+    # Only publish when code is pushed to master.
+    # Pull requests will still build and test the image,
+    # but will not publish it.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ghcr.io/${{ github.repository_owner }}/cats-dogs-api:latest \
+            -t ghcr.io/${{ github.repository_owner }}/cats-dogs-api:${{ github.sha }} \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/cats-dogs-api:latest
+          docker push ghcr.io/${{ github.repository_owner }}/cats-dogs-api:${{ github.sha }}
+
+      - name: Verify published image
+        run: |
+          echo "Docker image published successfully"
+          echo "ghcr.io/${{ github.repository_owner }}/cats-dogs-api:latest"
+          echo "ghcr.io/${{ github.repository_owner }}/cats-dogs-api:${{ github.sha }}"
