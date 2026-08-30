@@ -18,8 +18,8 @@ spec:
     spec:
       containers:
         - name: cats-dogs-api
-          image: cats-dogs-api:latest
-          imagePullPolicy: IfNotPresent
+          image: ghcr.io/akshaygund144/cats-dogs-api:latest
+          imagePullPolicy: Always
 
           ports:
             - containerPort: 5000
