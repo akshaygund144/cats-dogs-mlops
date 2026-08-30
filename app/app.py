@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import torch
-from flask import Flask, jsonify, request
+from fastapi import FastAPI, File, UploadFile
 from PIL import Image
 from torchvision import transforms
 
@@ -24,10 +24,14 @@ DEVICE = torch.device("cpu")
 
 
 # =========================================================
-# Flask Application
+# FastAPI Application
 # =========================================================
 
-app = Flask(__name__)
+app = FastAPI(
+    title="Cats vs Dogs CNN API",
+    description="CNN-based image classification API for Cats vs Dogs",
+    version="1.0.0",
+)
 
 
 # =========================================================
@@ -38,13 +42,11 @@ transform = transforms.Compose([
     transforms.Resize(
         (IMAGE_SIZE, IMAGE_SIZE)
     ),
-
     transforms.ToTensor(),
-
     transforms.Normalize(
         mean=[0.485, 0.456, 0.406],
         std=[0.229, 0.224, 0.225]
-    )
+    ),
 ])
 
 
@@ -68,6 +70,7 @@ def load_model():
         map_location=DEVICE
     )
 
+    # Handle different checkpoint formats
     if isinstance(checkpoint, dict):
 
         if "model_state_dict" in checkpoint:
@@ -99,43 +102,40 @@ model = load_model()
 # Health Check Endpoint
 # =========================================================
 
-@app.route("/health", methods=["GET"])
+@app.get("/health")
 def health():
 
-    return jsonify({
+    return {
         "status": "healthy",
         "model": "CatsDogsCNN",
-        "device": str(DEVICE)
-    })
+        "device": str(DEVICE),
+    }
 
 
 # =========================================================
 # Prediction Endpoint
 # =========================================================
 
-@app.route("/predict", methods=["POST"])
-def predict():
+@app.post("/predict")
+async def predict(
+    image: UploadFile = File(...)
+):
 
-    if "image" not in request.files:
-
-        return jsonify({
-            "error": "No image provided. Use form field 'image'."
-        }), 400
-
-    file = request.files["image"]
-
-    if file.filename == "":
-
-        return jsonify({
+    if not image.filename:
+        return {
             "error": "Empty filename."
-        }), 400
+        }
 
     try:
 
-        image = Image.open(file).convert("RGB")
+        image_data = await image.read()
+
+        pil_image = Image.open(
+            __import__("io").BytesIO(image_data)
+        ).convert("RGB")
 
         image_tensor = transform(
-            image
+            pil_image
         ).unsqueeze(0).to(DEVICE)
 
         with torch.no_grad():
@@ -160,19 +160,19 @@ def predict():
 
         confidence_value = confidence.item()
 
-        return jsonify({
+        return {
             "prediction": predicted_label,
             "confidence": round(
                 confidence_value * 100,
                 2
             )
-        })
+        }
 
     except Exception as exc:
 
-        return jsonify({
+        return {
             "error": str(exc)
-        }), 500
+        }
 
 
 # =========================================================
@@ -181,8 +181,10 @@ def predict():
 
 if __name__ == "__main__":
 
+    import uvicorn
+
     print("=" * 60)
-    print("Cats vs Dogs CNN API")
+    print("Cats vs Dogs CNN API - FastAPI")
     print("=" * 60)
 
     print(
@@ -205,10 +207,14 @@ if __name__ == "__main__":
         "  POST /predict"
     )
 
+    print(
+        "  GET  /docs"
+    )
+
     print("=" * 60)
 
-    app.run(
+    uvicorn.run(
+        app,
         host="0.0.0.0",
         port=5000,
-        debug=False
     )
