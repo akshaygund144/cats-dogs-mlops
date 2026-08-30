@@ -1,36 +1,64 @@
 from fastapi.testclient import TestClient
-from app.app import app
+from unittest.mock import patch
 
 
-client = TestClient(app)
+class MockModel:
+
+    def __call__(self, image_tensor):
+        import torch
+
+        return torch.tensor([[5.0, 0.1]])
 
 
 def test_health():
-    response = client.get("/health")
 
-    assert response.status_code == 200
+    with patch("app.app.model", MockModel()):
 
-    data = response.json()
+        from app.app import app
 
-    assert data["status"] == "healthy"
-    assert data["model"] == "CatsDogsCNN"
-    assert data["device"] == "cpu"
+        client = TestClient(app)
+
+        response = client.get("/health")
+
+        assert response.status_code == 200
+
+        data = response.json()
+
+        assert data["status"] == "healthy"
+        assert data["model"] == "CatsDogsCNN"
+        assert data["device"] == "cpu"
 
 
 def test_predict():
-    image_path = "data/processed/test/Cat/1000.jpg"
 
-    with open(image_path, "rb") as image:
-        response = client.post(
-            "/predict",
-            files={"image": ("1000.jpg", image, "image/jpeg")}
-        )
+    with patch("app.app.model", MockModel()):
 
-    assert response.status_code == 200
+        from app.app import app
 
-    data = response.json()
+        client = TestClient(app)
 
-    assert "prediction" in data
-    assert "confidence" in data
-    assert data["prediction"] in ["Cat", "Dog"]
-    assert 0 <= data["confidence"] <= 100
+        image_path = "data/processed/test/Cat/1000.jpg"
+
+        with open(image_path, "rb") as image:
+
+            response = client.post(
+                "/predict",
+                files={
+                    "image": (
+                        "1000.jpg",
+                        image,
+                        "image/jpeg"
+                    )
+                }
+            )
+
+        assert response.status_code == 200
+
+        data = response.json()
+
+        assert "prediction" in data
+        assert "confidence" in data
+
+        assert data["prediction"] in ["Cat", "Dog"]
+
+        assert 0 <= data["confidence"] <= 100

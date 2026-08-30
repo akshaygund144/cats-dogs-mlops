@@ -1,4 +1,5 @@
 from pathlib import Path
+from io import BytesIO
 
 import torch
 from fastapi import FastAPI, File, UploadFile
@@ -39,13 +40,11 @@ app = FastAPI(
 # =========================================================
 
 transform = transforms.Compose([
-    transforms.Resize(
-        (IMAGE_SIZE, IMAGE_SIZE)
-    ),
+    transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
     transforms.ToTensor(),
     transforms.Normalize(
         mean=[0.485, 0.456, 0.406],
-        std=[0.229, 0.224, 0.225]
+        std=[0.229, 0.224, 0.225],
     ),
 ])
 
@@ -55,19 +54,20 @@ transform = transforms.Compose([
 # =========================================================
 
 def load_model():
+    """
+    Load the trained Cats vs Dogs CNN model.
+    """
 
     if not MODEL_PATH.exists():
         raise FileNotFoundError(
             f"Model not found: {MODEL_PATH}"
         )
 
-    model = CatsDogsCNN(
-        num_classes=2
-    )
+    model = CatsDogsCNN(num_classes=2)
 
     checkpoint = torch.load(
         MODEL_PATH,
-        map_location=DEVICE
+        map_location=DEVICE,
     )
 
     # Handle different checkpoint formats
@@ -95,7 +95,14 @@ def load_model():
     return model
 
 
-model = load_model()
+# =========================================================
+# Model Initialization
+# =========================================================
+
+model = None
+
+if MODEL_PATH.exists():
+    model = load_model()
 
 
 # =========================================================
@@ -121,6 +128,13 @@ async def predict(
     image: UploadFile = File(...)
 ):
 
+    # Check whether the model is available
+    if model is None:
+        return {
+            "error": "Model not available."
+        }
+
+    # Check filename
     if not image.filename:
         return {
             "error": "Empty filename."
@@ -128,16 +142,20 @@ async def predict(
 
     try:
 
+        # Read uploaded image
         image_data = await image.read()
 
+        # Convert uploaded data to PIL image
         pil_image = Image.open(
-            __import__("io").BytesIO(image_data)
+            BytesIO(image_data)
         ).convert("RGB")
 
+        # Apply preprocessing
         image_tensor = transform(
             pil_image
         ).unsqueeze(0).to(DEVICE)
 
+        # Model inference
         with torch.no_grad():
 
             outputs = model(
@@ -154,6 +172,7 @@ async def predict(
                 dim=1
             )
 
+        # Convert prediction to class label
         predicted_label = CLASS_NAMES[
             predicted_class.item()
         ]
@@ -165,7 +184,7 @@ async def predict(
             "confidence": round(
                 confidence_value * 100,
                 2
-            )
+            ),
         }
 
     except Exception as exc:
@@ -187,29 +206,14 @@ if __name__ == "__main__":
     print("Cats vs Dogs CNN API - FastAPI")
     print("=" * 60)
 
-    print(
-        f"Model: {MODEL_PATH}"
-    )
+    print(f"Model: {MODEL_PATH}")
+    print(f"Model available: {model is not None}")
+    print(f"Device: {DEVICE}")
 
-    print(
-        f"Device: {DEVICE}"
-    )
-
-    print(
-        "Endpoints:"
-    )
-
-    print(
-        "  GET  /health"
-    )
-
-    print(
-        "  POST /predict"
-    )
-
-    print(
-        "  GET  /docs"
-    )
+    print("Endpoints:")
+    print("  GET  /health")
+    print("  POST /predict")
+    print("  GET  /docs")
 
     print("=" * 60)
 
