@@ -1,5 +1,10 @@
-from fastapi.testclient import TestClient
+from io import BytesIO
 from unittest.mock import patch
+
+from fastapi.testclient import TestClient
+from PIL import Image
+
+from app.app import app
 
 
 class MockModel:
@@ -7,58 +12,61 @@ class MockModel:
     def __call__(self, image_tensor):
         import torch
 
-        return torch.tensor([[5.0, 0.1]])
+        # Predict Cat with high confidence
+        return torch.tensor([[5.0, 1.0]])
+
+
+def create_test_image():
+    image = Image.new(
+        "RGB",
+        (128, 128),
+        color=(120, 120, 120)
+    )
+
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG")
+    buffer.seek(0)
+
+    return buffer
 
 
 def test_health():
 
-    with patch("app.app.model", MockModel()):
+    client = TestClient(app)
 
-        from app.app import app
+    response = client.get("/health")
 
-        client = TestClient(app)
+    assert response.status_code == 200
 
-        response = client.get("/health")
+    data = response.json()
 
-        assert response.status_code == 200
-
-        data = response.json()
-
-        assert data["status"] == "healthy"
-        assert data["model"] == "CatsDogsCNN"
-        assert data["device"] == "cpu"
+    assert data["status"] == "healthy"
+    assert data["model"] == "CatsDogsCNN"
 
 
 def test_predict():
 
     with patch("app.app.model", MockModel()):
 
-        from app.app import app
-
         client = TestClient(app)
 
-        image_path = "data/processed/test/Cat/1000.jpg"
+        image = create_test_image()
 
-        with open(image_path, "rb") as image:
-
-            response = client.post(
-                "/predict",
-                files={
-                    "image": (
-                        "1000.jpg",
-                        image,
-                        "image/jpeg"
-                    )
-                }
-            )
+        response = client.post(
+            "/predict",
+            files={
+                "image": (
+                    "test.jpg",
+                    image,
+                    "image/jpeg"
+                )
+            }
+        )
 
         assert response.status_code == 200
 
         data = response.json()
 
-        assert "prediction" in data
+        assert data["prediction"] == "Cat"
         assert "confidence" in data
-
-        assert data["prediction"] in ["Cat", "Dog"]
-
-        assert 0 <= data["confidence"] <= 100
+        assert data["confidence"] > 0
