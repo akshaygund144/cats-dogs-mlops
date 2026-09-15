@@ -2,13 +2,11 @@
 
 End-to-end MLOps pipeline for binary image classification using a Convolutional Neural Network (CNN) built with PyTorch.
 
-This project was developed as part of the **AIMLCZG523 - MLOps Assignment 2** and demonstrates the machine learning lifecycle from data preparation and model training through API serving, containerization, CI/CD, and Kubernetes deployment.
+This project demonstrates the machine learning lifecycle from data preparation and model training through API serving, containerization, CI/CD, and Kubernetes deployment.
 
 ---
 
 ## Assignment
-
-**Course:** AIMLCZG523 - MLOps Assignment 2
 
 **Project:** Cats vs Dogs Image Classification MLOps Pipeline
 
